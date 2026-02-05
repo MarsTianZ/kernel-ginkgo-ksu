@@ -35,18 +35,24 @@ jobs:
         git clone --depth=1 -b ${{ github.event.inputs.repo_branch }} ${{ github.event.inputs.repo_url }} android-kernel
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Setup KernelSU (Manual Method)
+    - name: Setup KernelSU (Force Clean)
       run: |
         cd android-kernel
-        # Download Source KernelSU Manual ke folder drivers
+        
+        # INI SOLUSINYA: Hapus folder lama yang bikin error
+        echo "Menghapus folder kernelsu bawaan..."
+        rm -rf drivers/kernelsu
+        
+        # Download ulang yang baru
+        echo "Download KernelSU baru..."
         git clone https://github.com/tiann/KernelSU drivers/kernelsu
         
-        # Patch drivers/Kconfig (Hanya jika belum ada)
+        # Patch drivers/Kconfig (Cek agar tidak dobel)
         if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
             echo "source \"drivers/kernelsu/Kconfig\"" >> drivers/Kconfig
         fi
         
-        # Patch drivers/Makefile (Hanya jika belum ada)
+        # Patch drivers/Makefile (Cek agar tidak dobel)
         if ! grep -q "drivers/kernelsu" drivers/Makefile; then
             echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
         fi
