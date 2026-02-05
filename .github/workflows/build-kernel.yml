@@ -18,10 +18,6 @@ on:
         description: 'Kernel Image Name'
         required: true
         default: 'Image.gz-dtb'
-      ksu_version:
-        description: 'KernelSU Version'
-        required: true
-        default: 'v0.9.5'
 
 jobs:
   build:
@@ -39,10 +35,21 @@ jobs:
         git clone --depth=1 -b ${{ github.event.inputs.repo_branch }} ${{ github.event.inputs.repo_url }} android-kernel
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Setup KernelSU
+    - name: Setup KernelSU (Manual Method)
       run: |
         cd android-kernel
-        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+        # Download Source KernelSU Manual ke folder drivers
+        git clone https://github.com/tiann/KernelSU drivers/kernelsu
+        
+        # Patch drivers/Kconfig (Hanya jika belum ada)
+        if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
+            echo "source \"drivers/kernelsu/Kconfig\"" >> drivers/Kconfig
+        fi
+        
+        # Patch drivers/Makefile (Hanya jika belum ada)
+        if ! grep -q "drivers/kernelsu" drivers/Makefile; then
+            echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
+        fi
         
     - name: Build Kernel
       run: |
