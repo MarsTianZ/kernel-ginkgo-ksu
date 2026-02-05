@@ -35,24 +35,32 @@ jobs:
         git clone --depth=1 -b ${{ github.event.inputs.repo_branch }} ${{ github.event.inputs.repo_url }} android-kernel
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Setup KernelSU (Force Clean)
+    - name: Setup KernelSU (ZIP Method)
       run: |
         cd android-kernel
         
-        # INI SOLUSINYA: Hapus folder lama yang bikin error
-        echo "Menghapus folder kernelsu bawaan..."
+        # 1. Hapus folder kernelsu bawaan (Sampah Submodule)
+        echo "Menghapus folder kernelsu lama..."
         rm -rf drivers/kernelsu
         
-        # Download ulang yang baru
-        echo "Download KernelSU baru..."
-        git clone https://github.com/tiann/KernelSU drivers/kernelsu
+        # 2. Download KernelSU v0.9.5 (Versi Stabil) sebagai ZIP
+        echo "Download KernelSU ZIP..."
+        curl -L https://github.com/tiann/KernelSU/archive/refs/tags/v0.9.5.tar.gz -o kernelsu.tar.gz
         
-        # Patch drivers/Kconfig (Cek agar tidak dobel)
+        # 3. Ekstrak dan Ganti Nama
+        tar -xf kernelsu.tar.gz
+        mv KernelSU-0.9.5 drivers/kernelsu
+        rm kernelsu.tar.gz
+        
+        # 4. Cek apakah folder benar-benar ada
+        ls -F drivers/kernelsu/
+        
+        # 5. Patch drivers/Kconfig (Cek agar tidak dobel)
         if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
             echo "source \"drivers/kernelsu/Kconfig\"" >> drivers/Kconfig
         fi
         
-        # Patch drivers/Makefile (Cek agar tidak dobel)
+        # 6. Patch drivers/Makefile (Cek agar tidak dobel)
         if ! grep -q "drivers/kernelsu" drivers/Makefile; then
             echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
         fi
