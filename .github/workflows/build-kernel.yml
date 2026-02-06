@@ -1,4 +1,4 @@
-name: Build KernelSU Ginkgo
+name: Build KernelSU Ginkgo (Anti-Gagal)
 on:
   workflow_dispatch:
     inputs:
@@ -25,47 +25,43 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup Environment
+    - name: 1. Siapkan Alat (Environment)
       run: |
         sudo apt-get update
         sudo apt-get install -y git-core gnupg flex bison gperf build-essential zip curl zlib1g-dev gcc-multilib g++-multilib lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip bc
     
-    - name: Clone Source & Toolchain
+    - name: 2. Download Bahan (Source Code)
       run: |
+        # Download Source Kernel
         git clone --depth=1 -b ${{ github.event.inputs.repo_branch }} ${{ github.event.inputs.repo_url }} android-kernel
+        # Download Compiler (Proton Clang)
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Setup KernelSU (ZIP Method)
+    - name: 3. Pasang KernelSU (Dengan Pembersih Otomatis)
       run: |
         cd android-kernel
         
-        # 1. Hapus folder kernelsu bawaan (Sampah Submodule)
-        echo "Menghapus folder kernelsu lama..."
+        # --- TAHAP PEMBERSIHAN (Anti-Error) ---
+        echo "Sedang membersihkan sisa-sisa folder rusak..."
         rm -rf drivers/kernelsu
         
-        # 2. Download KernelSU v0.9.5 (Versi Stabil) sebagai ZIP
-        echo "Download KernelSU ZIP..."
-        curl -L https://github.com/tiann/KernelSU/archive/refs/tags/v0.9.5.tar.gz -o kernelsu.tar.gz
+        # Hapus baris konfigurasi lama jika ada (agar tidak bentrok)
+        sed -i '/kernelsu/d' drivers/Kconfig
+        sed -i '/kernelsu/d' drivers/Makefile
         
-        # 3. Ekstrak dan Ganti Nama
-        tar -xf kernelsu.tar.gz
-        mv KernelSU-0.9.5 drivers/kernelsu
-        rm kernelsu.tar.gz
+        # --- TAHAP INSTALASI ---
+        echo "Mendownload & Memasang KernelSU Terbaru..."
+        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
         
-        # 4. Cek apakah folder benar-benar ada
-        ls -F drivers/kernelsu/
-        
-        # 5. Patch drivers/Kconfig (Cek agar tidak dobel)
-        if ! grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig; then
-            echo "source \"drivers/kernelsu/Kconfig\"" >> drivers/Kconfig
+        # Cek hasil instalasi
+        if [ -d "drivers/kernelsu" ]; then
+            echo "SUKSES: Folder KernelSU berhasil dipasang!"
+        else
+            echo "GAGAL: Folder KernelSU tidak ditemukan."
+            exit 1
         fi
         
-        # 6. Patch drivers/Makefile (Cek agar tidak dobel)
-        if ! grep -q "drivers/kernelsu" drivers/Makefile; then
-            echo "obj-\$(CONFIG_KSU) += kernelsu/" >> drivers/Makefile
-        fi
-        
-    - name: Build Kernel
+    - name: 4. Proses Memasak (Build)
       run: |
         cd android-kernel
         export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
@@ -74,15 +70,14 @@ jobs:
         export KBUILD_BUILD_USER=MarsTianZ
         export KBUILD_BUILD_HOST=GitHub-Action
         
-        # Inject Config KSU
-        echo "CONFIG_KSU=y" >> arch/arm64/configs/${{ github.event.inputs.config_file }}
+        # Tambahkan Resep Wajib KSU (OverlayFS)
         echo "CONFIG_OVERLAY_FS=y" >> arch/arm64/configs/${{ github.event.inputs.config_file }}
         
-        # Build command
+        # Mulai Kompilasi
         make O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- ${{ github.event.inputs.config_file }}
         make -j$(nproc --all) O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
-    - name: Upload Artifact
+    - name: 5. Upload Hasil Masakan
       uses: actions/upload-artifact@v4
       with:
         name: Image-KernelSU-Ginkgo
