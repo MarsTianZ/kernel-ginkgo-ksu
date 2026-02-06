@@ -1,4 +1,4 @@
-name: Build KernelSU Ginkgo (ZyCromerZ Fix)
+name: Build KernelSU Ginkgo (Binutils Fix)
 on:
   workflow_dispatch:
     inputs:
@@ -25,18 +25,20 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: 1. Siapkan Alat (Environment)
+    - name: 1. Siapkan Alat & Binutils (PENTING)
       run: |
         sudo apt-get update
+        # Install paket dasar
         sudo apt-get install -y git-core gnupg flex bison gperf build-essential zip curl zlib1g-dev gcc-multilib g++-multilib lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip bc
+        # Install Cross-Compiler (Ini yang kemarin kurang!)
+        sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
     
-    - name: 2. Download Bahan (Source & Compiler Baru)
+    - name: 2. Download Bahan (Source & Compiler)
       run: |
         # Download Source Kernel
         git clone --depth=1 -b ${{ github.event.inputs.repo_branch }} ${{ github.event.inputs.repo_url }} android-kernel
         
-        # --- PERUBAHAN DI SINI ---
-        # Menggunakan ZyCromerZ Clang (Lebih kompatibel untuk Kernel 4.14)
+        # Menggunakan ZyCromerZ Clang (Compiler)
         git clone --depth=1 https://github.com/ZyCromerZ/Clang clang
 
     - name: 3. Pasang KernelSU (Dengan Pembersih Otomatis)
@@ -65,7 +67,8 @@ jobs:
         # Tambahkan Resep Wajib KSU (OverlayFS)
         echo "CONFIG_OVERLAY_FS=y" >> arch/arm64/configs/${{ github.event.inputs.config_file }}
         
-        # Mulai Kompilasi (Menggunakan Compiler Baru)
+        # Mulai Kompilasi
+        # Sekarang sistem sudah punya aarch64-linux-gnu-ld berkat langkah no 1
         make O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- ${{ github.event.inputs.config_file }}
         make -j$(nproc --all) O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
